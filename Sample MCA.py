@@ -57,7 +57,6 @@ if user_selected == "jaco":
         deal_size = st.number_input("Deal Size ($)", value=100000)
         rate = st.number_input("Rate (e.g. 1.499)", value=1.499, format="%.3f")
         term = st.number_input("Term (Days)", value=120)
-        payback = st.number_input("Payback Amount ($)", value=148000)
         start_date = st.date_input("Start Date", value=datetime.today())
         submitted = st.form_submit_button("Create Deal")
     if submitted:
