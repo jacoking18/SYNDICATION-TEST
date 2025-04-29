@@ -52,13 +52,38 @@ if user_selected == "jaco":
 
     # --- SIDEBAR FOR ADMIN ACTIONS ---
     st.sidebar.markdown("## ➕ Add New Deal")
+    
     with st.sidebar.form("add_deal_form"):
         biz_name = st.text_input("Business Name")
-        deal_size = st.number_input("Deal Size ($)", value=100000)
+        deal_size = st.number_input("Deal Size ($)", value=10000, step=100, format="%.0f")
         rate = st.number_input("Rate (e.g. 1.499)", value=1.499, format="%.3f")
         term = st.number_input("Term (Days)", value=120)
+
+        # Auto-calculations
+        payback = deal_size * rate
+        per_payment = payback / term if term else 0
+
+        st.markdown(f"<br><b>📈 Payback Amount:</b> <span style='color:#4CAF50;'>${payback:,.2f}</span>", unsafe_allow_html=True)
+        st.markdown(f"<b>📆 {term} payments of:</b> <span style='color:#2196F3;'>${per_payment:,.2f}</span>", unsafe_allow_html=True)
+
         start_date = st.date_input("Start Date", value=datetime.today())
         submitted = st.form_submit_button("Create Deal")
+
+    if submitted:
+        new_id = f"D{100+len(st.session_state.deals)}"
+        new_deal = pd.DataFrame({
+            "Deal ID": [new_id],
+            "Business Name": [biz_name],
+            "Deal Size": [deal_size],
+            "Payback": [payback],
+            "Rate": [rate],
+            "Start Date": [start_date],
+            "Term (Days)": [term],
+            "Defaulted": [False]
+        })
+        st.session_state.deals = pd.concat([st.session_state.deals, new_deal], ignore_index=True)
+        st.success(f"New deal '{biz_name}' added.")
+
     if submitted:
         new_id = f"D{100+len(st.session_state.deals)}"
         new_deal = pd.DataFrame({
