@@ -115,14 +115,16 @@ if user_selected == "jaco":
 # === CONTINUED FROM EARLIER ===
 
     # --- VIEW USERS TABLE ---
+    
     st.sidebar.markdown("## 👥 View All Users")
     if st.sidebar.button("Show Users Table"):
         user_data = pd.DataFrame({
-            "Username": list(USER_CREDENTIALS.keys()),
-            "Password": list(USER_CREDENTIALS.values())
+            "Username": st.session_state.users,
+            "Password": [USER_CREDENTIALS.get(u, "unknown") for u in st.session_state.users]
         })
         st.subheader("🔐 Registered Users (Admin Only)")
         st.dataframe(user_data)
+
 
 
     # --- DELETE DEAL ---
