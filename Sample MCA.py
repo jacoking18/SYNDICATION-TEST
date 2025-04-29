@@ -203,7 +203,7 @@ elif user_selected in st.session_state.users:
         st.sidebar.markdown("## 👥 View & Delete Users")
         if st.sidebar.button("Show Users Table"):
             st.dataframe(pd.DataFrame(st.session_state.users, columns=["Username"]))
-        user_to_delete = st.sidebar.selectbox("Select User to Delete", st.session_state.users)
+        user_to_delete = st.sidebar.selectbox("Select User to Delete", [""] + st.session_state.users)
         if st.sidebar.button("Delete User"):
             if user_to_delete in st.session_state.users:
                 st.session_state.users.remove(user_to_delete)
@@ -216,7 +216,7 @@ elif user_selected in st.session_state.users:
             st.dataframe(st.session_state.deals)
         if not st.session_state.deals.empty:
             deal_ids = st.session_state.deals["Deal ID"].tolist()
-            deal_to_delete = st.sidebar.selectbox("Select Deal to Delete", deal_ids)
+            deal_to_delete = st.sidebar.selectbox("Select Deal to Delete", [""] + deal_ids)
             if st.sidebar.button("Delete Deal"):
                 st.session_state.deals = st.session_state.deals[st.session_state.deals["Deal ID"] != deal_to_delete]
                 st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["Deal ID"] != deal_to_delete]
@@ -228,7 +228,7 @@ elif user_selected in st.session_state.users:
             st.dataframe(st.session_state.syndications)
         if not st.session_state.syndications.empty:
             synd_ids = st.session_state.syndications["Deal ID"].unique().tolist()
-            synd_to_delete = st.sidebar.selectbox("Select Deal's Syndications to Delete", synd_ids)
+            synd_to_delete = st.sidebar.selectbox("Select Deal's Syndications to Delete", [""] + synd_ids)
             if st.sidebar.button("Delete Syndication"):
                 st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["Deal ID"] != synd_to_delete]
                 st.success(f"All syndicators removed from deal '{synd_to_delete}'.")
