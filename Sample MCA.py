@@ -55,7 +55,7 @@ if "syndications" not in st.session_state:
 # --- Users Initialization ---
 
 # --- User Dashboard View ---
-if user_selected in st.session_state.users:
+if "users" in st.session_state and user_selected in st.session_state.users:
     merged = pd.merge(st.session_state.syndications, st.session_state.deals, on="Deal ID")
     user_deals = merged[merged["User"] == user_selected]
 
