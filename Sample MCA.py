@@ -20,6 +20,7 @@ if "deals" not in st.session_state:
         "Rate": [1.4] * 8,
         "Start Date": pd.date_range(start="2025-01-15", periods=8, freq='15D'),
         "Term (Days)": [140, 100, 120, 150, 110, 130, 125, 105],
+        "Defaulted": [False]*7 + [True],
     })
 
 if "syndications" not in st.session_state:
@@ -28,56 +29,6 @@ if "syndications" not in st.session_state:
         "User": ["albert"]*4 + ["jacob"]*4 + ["joel"]*4 + ["julian"]*4,
         "% Funded": np.random.uniform(0.1, 0.5, 16).round(2)
     })
-
-# --- Admin Input for New Deals ---
-if user_selected == "jaco (Admin View)":
-    st.sidebar.markdown("---")
-    st.sidebar.header("➕ Add New Deal")
-    with st.sidebar.form("add_deal_form"):
-        biz_name = st.text_input("Business Name", "Maria Bakery")
-        deal_size = st.number_input("Deal Size ($)", value=100000)
-        rate = st.number_input("Rate (e.g. 1.48)", value=1.48)
-        term = st.number_input("Term (Days)", value=120)
-        payback = st.number_input("Payback Amount ($)", value=149000)
-        start_date = st.date_input("Start Date", value=datetime.today())
-        submitted = st.form_submit_button("Create Deal")
-
-    if submitted:
-        new_id = f"D{len(st.session_state.deals)+1:03}"
-        new_deal = pd.DataFrame.from_dict({
-            "Deal ID": [new_id],
-            "Business Name": [biz_name],
-            "Deal Size": [deal_size],
-            "Payback": [payback],
-            "Rate": [rate],
-            "Start Date": [start_date],
-            "Term (Days)": [term],
-        })
-        st.session_state.deals = pd.concat([st.session_state.deals, new_deal], ignore_index=True)
-        st.success(f"New deal '{biz_name}' added successfully!")
-
-    st.sidebar.markdown("---")
-    st.sidebar.header("👥 Syndicate Deal")
-    if not st.session_state.deals.empty:
-        selected_deal = st.sidebar.selectbox("Select Deal to Syndicate", st.session_state.deals["Deal ID"])
-        with st.sidebar.form("syndicate_form"):
-            st.markdown("Input % participation for each user")
-            percent_albert = st.slider("Albert %", 0, 100, 30)
-            percent_julian = st.slider("Julian %", 0, 100, 30)
-            percent_joel = st.slider("Joel %", 0, 100, 10)
-            percent_jacob = st.slider("Jacob %", 0, 100, 20)
-            percent_daniel = st.slider("Daniel %", 0, 100, 10)
-            syndicate_submitted = st.form_submit_button("Add Syndications")
-
-        if syndicate_submitted:
-            new_rows = pd.DataFrame({
-                "Deal ID": [selected_deal]*5,
-                "User": ["albert", "julian", "joel", "jacob", "daniel"],
-                "% Funded": [percent_albert, percent_julian, percent_joel, percent_jacob, percent_daniel]
-            })
-            new_rows["% Funded"] = new_rows["% Funded"] / 100  # convert to decimal
-            st.session_state.syndications = pd.concat([st.session_state.syndications, new_rows], ignore_index=True)
-            st.success(f"Syndication added to Deal {selected_deal}")
 
 # --- Merge Data ---
 merged = pd.merge(st.session_state.syndications, st.session_state.deals, on="Deal ID")
@@ -97,12 +48,31 @@ col1.metric("Total Funded", f"${merged['Amount Funded'].sum():,.2f}")
 col2.metric("Total Expected Return", f"${merged['Expected Return'].sum():,.2f}")
 col3.metric("Outstanding Balance", f"${merged['Outstanding'].sum():,.2f}")
 
-# Progress Bars
+# Progress Bars with Custom Styling
 st.markdown("### 📈 Payment Progress")
 for _, row in merged.iterrows():
     pct_collected = row["Payment Received"] / row["Expected Return"]
-    st.write(f"**{row['Business Name']}** — Collected: ${row['Payment Received']:,.2f} / ${row['Expected Return']:,.2f}")
-    st.progress(min(pct_collected, 1.0))
+    bar_color = "#4CAF50" if not row.get("Defaulted", False) else "#D32F2F"  # green or red
+    bar_html = f"""
+    <div style='margin-bottom: 10px;'>
+        <b>{row['Business Name']}</b> — Collected: ${row['Payment Received']:,.2f} / ${row['Expected Return']:,.2f}
+        <div style='background-color:#e0e0e0;border-radius:10px;height:16px;width:60%;margin-top:4px;'>
+            <div style='height:100%;width:{pct_collected*100:.1f}%;background-color:{bar_color};border-radius:10px;'></div>
+        </div>
+    </div>"""
+    st.markdown(bar_html, unsafe_allow_html=True)
+
+# Missed payment example (manual add)
+if user_selected == "jaco (Admin View)":
+    st.markdown("### ❌ Missed Payment Report")
+    missed_df = pd.DataFrame({
+        "Deal ID": ["D008"],
+        "Business Name": ["FixIt Pro"],
+        "Date": [datetime.today().date()],
+        "Expected Payment": [893.33],
+        "Status": ["Missed"]
+    })
+    st.dataframe(missed_df)
 
 # Deal Table
 st.markdown("### 💼 Syndicated Deals")
@@ -124,7 +94,7 @@ if user_selected == "jaco (Admin View)":
                 "Business Name": row["Business Name"],
                 "Date": date.date(),
                 "Expected Payment": daily_payment,
-                "Status": "Paid"
+                "Status": "Paid" if not row["Defaulted"] else "Defaulted"
             })
     st.dataframe(pd.DataFrame(payment_rows))
 
