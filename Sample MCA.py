@@ -93,7 +93,8 @@ if user_selected == "jaco (Admin View)":
     st.markdown("<h4 style='color:#2196F3;'>📄 All Deals</h4>", unsafe_allow_html=True)
     st.dataframe(st.session_state.deals)
     st.markdown("<h4 style='color:#673AB7;'>🤝 All Syndications</h4>", unsafe_allow_html=True)
-        styled_syndications = st.session_state.syndications.copy()
+        # Fix indentation
+    styled_syndications = st.session_state.syndications.copy()
     styled_syndications["% Funded"] = styled_syndications["% Funded"].apply(lambda x: f"{x*100:.0f}%")
     st.dataframe(styled_syndications)
     st.markdown("---")
