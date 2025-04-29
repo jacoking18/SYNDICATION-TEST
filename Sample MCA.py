@@ -58,14 +58,14 @@ if "users" not in st.session_state:
 
 # --- Admin Functionality ---
 if user_selected == "jaco (Admin View)":
-    st.subheader("📋 CRM Overview")
-    st.markdown("### 📄 All Deals")
+    st.markdown("<h2 style='color:#4CAF50;'>📋 CRM Overview</h2>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color:#2196F3;'>📄 All Deals</h4>", unsafe_allow_html=True)
     st.dataframe(st.session_state.deals)
-    st.markdown("### 🤝 All Syndications")
+    st.markdown("<h4 style='color:#673AB7;'>🤝 All Syndications</h4>", unsafe_allow_html=True)
     st.dataframe(st.session_state.syndications)
     st.markdown("---")
     st.sidebar.markdown("---")
-    st.sidebar.header("➕ Add New Deal")
+    st.sidebar.markdown("<h4 style='margin-top:20px;'>➕ <u>Add New Deal</u></h4>", unsafe_allow_html=True)
     with st.sidebar.form("add_deal_form"):
         biz_name = st.text_input("Business Name", "New Business")
         deal_size = st.number_input("Deal Size ($)", value=100000)
@@ -91,7 +91,7 @@ if user_selected == "jaco (Admin View)":
         st.success(f"New deal '{biz_name}' added successfully!")
 
     st.sidebar.markdown("---")
-    st.sidebar.header("👥 Assign Syndicators to Deal")
+    st.sidebar.markdown("<h4 style='margin-top:30px;'>👥 <u>Assign Syndicators to Deal</u></h4>", unsafe_allow_html=True)
     if not st.session_state.deals.empty:
         deal_options = st.session_state.deals.apply(lambda row: f"{row['Deal ID']} - {row['Business Name']}", axis=1)
         selected_option = st.sidebar.selectbox("Select Deal", deal_options)
