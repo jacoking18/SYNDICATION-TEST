@@ -6,11 +6,10 @@ import numpy as np
 st.set_page_config(page_title="MCA Syndication Tracker", layout="wide")
 st.title("📊 MCA Syndication Tracker – DEMO")
 
-# --- Sidebar ---
 st.sidebar.header("Select User")
 user_selected = st.sidebar.selectbox("Choose a user:", ["albert", "jacob", "joel", "julian", "daniel", "verifier", "jaco (Admin View)"])
 
-# --- Session state initialization ---
+# --- Deals Initialization ---
 if "deals" not in st.session_state:
     st.session_state.deals = pd.DataFrame({
         "Deal ID": [f"D{100+i}" for i in range(10)],
@@ -26,6 +25,7 @@ if "deals" not in st.session_state:
         "Defaulted": [False, False, False, True, False, False, False, True, False, False]
     })
 
+# --- Syndications Initialization ---
 if "syndications" not in st.session_state:
     deals = st.session_state.deals
     syndications_list = []
@@ -52,10 +52,11 @@ if "syndications" not in st.session_state:
                 })
     st.session_state.syndications = pd.DataFrame(syndications_list)
 
+# --- Users Initialization ---
 if "users" not in st.session_state:
     st.session_state.users = ["albert", "jacob", "joel", "julian", "daniel"]
 
-# --- Admin functionality ---
+# --- Admin Functionality ---
 if user_selected == "jaco (Admin View)":
     st.sidebar.markdown("---")
     st.sidebar.header("➕ Add New Deal")
@@ -76,77 +77,40 @@ if user_selected == "jaco (Admin View)":
             "Deal Size": [deal_size],
             "Payback": [payback],
             "Rate": [rate],
-            "Start Date": [start_date],
+            "Start Date": [pd.to_datetime(start_date)],
             "Term (Days)": [term],
             "Defaulted": [False]
         })
         st.session_state.deals = pd.concat([st.session_state.deals, new_deal], ignore_index=True)
         st.success(f"New deal '{biz_name}' added successfully!")
 
-# --- Verifier Tab ---
-if user_selected == "verifier":
-    st.subheader("📅 Daily Payment Verifier Dashboard")
-    today = datetime.today().date()
-    selected_date = st.date_input("Select Date to Review Payments", today)
+    st.sidebar.markdown("---")
+    st.sidebar.header("👥 Assign Syndicators to Deal")
+    if not st.session_state.deals.empty:
+        synd_deal_id = st.sidebar.selectbox("Select Deal", st.session_state.deals["Deal ID"])
+        with st.sidebar.form("assign_syndication_form"):
+            st.markdown("Input % participation (must total ≤ 100%)")
+            synd_inputs = {}
+            for user in st.session_state.users:
+                synd_inputs[user] = st.slider(f"{user.capitalize()} %", 0, 100, 0)
+            total_pct_value = sum(synd_inputs.values())
+            if total_pct_value > 100:
+                st.markdown(f"<span style='color:red;font-weight:bold;'>⚠️ Total: {total_pct_value}% — exceeds 100%</span>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"**Current Total: {total_pct_value}%**")
+            assign_submit = st.form_submit_button("Assign Syndicators")
 
-    verifier_rows = []
-    for _, row in st.session_state.deals.iterrows():
-        start = row["Start Date"].date()
-        days_since_start = (selected_date - start).days
-        if 0 <= days_since_start < row["Term (Days)"]:
-            verifier_rows.append({
-                "Deal ID": row["Deal ID"],
-                "Business Name": row["Business Name"],
-                "Expected Payment": round(row["Payback"] / row["Term (Days)"], 2),
-                "Date": selected_date,
-                "Status": "YES"
-            })
-
-    verifier_df = pd.DataFrame(verifier_rows)
-    if not verifier_df.empty:
-        st.dataframe(verifier_df)
-        missed_indices = st.multiselect("Select rows to mark as 'NO' (missed)", verifier_df.index.tolist())
-        if missed_indices:
-            verifier_df.loc[missed_indices, "Status"] = "NO"
-            st.warning("The following deals were marked as 'NO':")
-            st.dataframe(verifier_df.loc[missed_indices])
-        else:
-            st.success("All payments assumed paid for today.")
-    else:
-        st.info("No expected payments to verify for the selected date.")
-
-# --- Main Dashboard ---
-if user_selected not in ["verifier", "jaco (Admin View)"]:
-    merged = pd.merge(st.session_state.syndications, st.session_state.deals, on="Deal ID")
-    merged = merged[merged["User"] == user_selected]
-
-    st.subheader(f"Deals for: {user_selected.capitalize()}")
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Funded", f"${merged['% Funded'].mul(merged['Deal Size']).sum():,.2f}")
-    col2.metric("Total Payback Expected", f"${merged['% Funded'].mul(merged['Payback']).sum():,.2f}")
-    col3.metric("Outstanding Balance", f"${merged['% Funded'].mul(merged['Payback']).sum()*0.6:,.2f}")
-    col4.metric("Total Collected as of {datetime.today().date()}", f"${merged['% Funded'].mul(merged['Payback']).sum()*0.4:,.2f}")
-
-    st.markdown("### 📈 Payment Progress")
-    for _, row in merged.iterrows():
-        expected_return = row["% Funded"] * row["Payback"]
-        payments_total = row["Term (Days)"]
-        payments_made = int(0.6 * payments_total)  # Assume 60% progress
-        pct_collected = payments_made / payments_total
-        bar_color = "#4CAF50" if not row["Defaulted"] else "#D32F2F"
-        st.markdown(f"""
-        <div style='margin-bottom: 10px;'>
-            <b>{row['Business Name']}</b> — Collected: ({payments_made}/{payments_total}) payments
-            <div style='background-color:#e0e0e0;border-radius:10px;height:16px;width:60%;margin-top:4px;'>
-                <div style='height:100%;width:{pct_collected*100:.1f}%;background-color:{bar_color};border-radius:10px;'></div>
-            </div>
-        </div>""", unsafe_allow_html=True)
-
-# --- Admin CRM Total View ---
-if user_selected == "jaco (Admin View)":
-    st.subheader("📋 Total Deals in CRM")
-    st.dataframe(st.session_state.deals)
-    st.dataframe(st.session_state.syndications)
-
-st.markdown("---")
-st.caption("Demo Version — CAPNOW MCA Tracker")
+        if assign_submit:
+            if total_pct_value <= 100:
+                synd_rows = []
+                for user, pct in synd_inputs.items():
+                    if pct > 0:
+                        synd_rows.append({
+                            "Deal ID": synd_deal_id,
+                            "User": user,
+                            "% Funded": pct / 100
+                        })
+                st.session_state.syndications = pd.concat([st.session_state.syndications, pd.DataFrame(synd_rows)], ignore_index=True)
+                st.success("Syndicators assigned successfully.")
+            else:
+                st.error("Total % exceeds 100%. Please adjust.")
