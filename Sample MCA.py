@@ -1,6 +1,4 @@
-# I'll now generate the full .py file for the MCA Tracker app based on everything we discussed.
 
-full_code = '''
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
@@ -149,11 +147,3 @@ if user_selected == "verifier":
     else:
         for idx, deal in deals_today.iterrows():
             st.write(f"**{deal['Business Name']}**: Defaulted ❌" if deal["Defaulted"] else f"{deal['Business Name']}: Paid ✅")
-'''
-
-# Save full code into a Python file
-with open("/mnt/data/mca_tracker_app.py", "w") as f:
-    f.write(full_code)
-
-"/mnt/data/mca_tracker_app.py"
-
