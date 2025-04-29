@@ -111,3 +111,44 @@ if user_selected == "jaco":
                     rows.append({"Deal ID": synd_deal_id, "User": user, "% Funded": pct / 100})
             st.session_state.syndications = pd.concat([st.session_state.syndications, pd.DataFrame(rows)], ignore_index=True)
             st.success("Syndicators assigned successfully.")
+
+# === CONTINUED FROM EARLIER ===
+
+    # --- VIEW USERS TABLE ---
+    st.sidebar.markdown("## 👥 View All Users")
+    if st.sidebar.button("Show Users Table"):
+        user_data = pd.DataFrame({
+            "Username": list(USER_CREDENTIALS.keys()),
+            "Password": list(USER_CREDENTIALS.values())
+        })
+        st.subheader("🔐 Registered Users (Admin Only)")
+        st.dataframe(user_data)
+
+# ------------------------ USER VIEW ------------------------
+elif user_selected in st.session_state.users:
+    merged = pd.merge(st.session_state.syndications, st.session_state.deals, on="Deal ID", how="left")
+    user_deals = merged[merged["User"] == user_selected]
+
+    st.subheader(f"💼 Deals for: {user_selected.capitalize()}")
+    if user_deals.empty:
+        st.info("No deals assigned yet.")
+    else:
+        col1, col2, col3 = st.columns(3)
+        total_funded = user_deals["% Funded"] * user_deals["Deal Size"]
+        total_payback = user_deals["% Funded"] * user_deals["Payback"]
+        col1.metric("Total Funded", f"${total_funded.sum():,.0f}")
+        col2.metric("Expected Return", f"${total_payback.sum():,.0f}")
+        col3.metric("Outstanding", f"${(total_payback.sum()*0.6):,.0f}")
+        st.markdown("### 📊 Progress")
+        for _, row in user_deals.iterrows():
+            biz = row['Business Name']
+            term = int(row['Term (Days)'])
+            made = int(0.6 * term)
+            pct = made / term
+            bar = "#4CAF50" if not row["Defaulted"] else "#F44336"
+            st.markdown(f"<b>{biz}</b> — Collected: ({made}/{term}) payments", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style='background:#ddd;border-radius:10px;width:60%;height:16px;'>
+                <div style='width:{pct*100:.1f}%;background:{bar};height:100%;border-radius:10px;'></div>
+            </div>
+            """, unsafe_allow_html=True)
