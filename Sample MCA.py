@@ -48,11 +48,42 @@ if "syndications" not in st.session_state:
                 syndications_list.append({
                     "Deal ID": deal["Deal ID"],
                     "User": user,
-                    "% Funded": pct / 100
+                    "% Funded": round(pct / 100, 2)
                 })
     st.session_state.syndications = pd.DataFrame(syndications_list)
 
 # --- Users Initialization ---
+
+# --- User Dashboard View ---
+if user_selected in st.session_state.users:
+    merged = pd.merge(st.session_state.syndications, st.session_state.deals, on="Deal ID")
+    user_deals = merged[merged["User"] == user_selected]
+
+    st.subheader(f"💼 Deals for: {user_selected.capitalize()}")
+    if user_deals.empty:
+        st.info("No deals assigned yet.")
+    else:
+        col1, col2, col3 = st.columns(3)
+        total_funded = user_deals["% Funded"] * user_deals["Deal Size"]
+        total_payback = user_deals["% Funded"] * user_deals["Payback"]
+        col1.metric("Total Funded", f"${total_funded.sum():,.0f}")
+        col2.metric("Total Expected Return", f"${total_payback.sum():,.0f}")
+        col3.metric("Outstanding Balance", f"${(total_payback.sum()*0.6):,.0f}")
+
+        st.markdown("### 📊 Payment Progress")
+        for _, row in user_deals.iterrows():
+            expected_return = row["% Funded"] * row["Payback"]
+            payments_total = row["Term (Days)"]
+            payments_made = int(0.6 * payments_total)
+            pct_collected = payments_made / payments_total
+            bar_color = "#4CAF50" if not row["Defaulted"] else "#F44336"
+            st.markdown(f"""
+            <div style='margin-bottom: 10px;'>
+                <b>{row['Business Name']}</b> — Collected: ({payments_made}/{payments_total}) payments
+                <div style='background-color:#e0e0e0;border-radius:10px;height:16px;width:60%;margin-top:4px;'>
+                    <div style='height:100%;width:{pct_collected*100:.1f}%;background-color:{bar_color};border-radius:10px;'></div>
+                </div>
+            </div>""", unsafe_allow_html=True)
 if "users" not in st.session_state:
     st.session_state.users = ["albert", "jacob", "joel", "julian", "daniel"]
 
@@ -62,7 +93,9 @@ if user_selected == "jaco (Admin View)":
     st.markdown("<h4 style='color:#2196F3;'>📄 All Deals</h4>", unsafe_allow_html=True)
     st.dataframe(st.session_state.deals)
     st.markdown("<h4 style='color:#673AB7;'>🤝 All Syndications</h4>", unsafe_allow_html=True)
-    st.dataframe(st.session_state.syndications)
+    styled_syndications = st.session_state.syndications.copy()
+styled_syndications["% Funded"] = styled_syndications["% Funded"].apply(lambda x: f"{x*100:.0f}%")
+st.dataframe(styled_syndications)
     st.markdown("---")
     st.sidebar.markdown("---")
     st.sidebar.markdown("<h4 style='margin-top:20px;'>➕ <u>Add New Deal</u></h4>", unsafe_allow_html=True)
