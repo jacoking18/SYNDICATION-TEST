@@ -58,6 +58,12 @@ if "users" not in st.session_state:
 
 # --- Admin Functionality ---
 if user_selected == "jaco (Admin View)":
+    st.subheader("📋 CRM Overview")
+    st.markdown("### 📄 All Deals")
+    st.dataframe(st.session_state.deals)
+    st.markdown("### 🤝 All Syndications")
+    st.dataframe(st.session_state.syndications)
+    st.markdown("---")
     st.sidebar.markdown("---")
     st.sidebar.header("➕ Add New Deal")
     with st.sidebar.form("add_deal_form"):
@@ -87,7 +93,9 @@ if user_selected == "jaco (Admin View)":
     st.sidebar.markdown("---")
     st.sidebar.header("👥 Assign Syndicators to Deal")
     if not st.session_state.deals.empty:
-        synd_deal_id = st.sidebar.selectbox("Select Deal", st.session_state.deals["Deal ID"])
+        deal_options = st.session_state.deals.apply(lambda row: f"{row['Deal ID']} - {row['Business Name']}", axis=1)
+        selected_option = st.sidebar.selectbox("Select Deal", deal_options)
+        synd_deal_id = selected_option.split(" - ")[0]
         with st.sidebar.form("assign_syndication_form"):
             st.markdown("Input % participation (must total ≤ 100%)")
             synd_inputs = {}
