@@ -53,21 +53,23 @@ if user_selected == "jaco":
     # --- SIDEBAR FOR ADMIN ACTIONS ---
     st.sidebar.markdown("## ➕ Add New Deal")
     
+    
     with st.sidebar.form("add_deal_form"):
         biz_name = st.text_input("Business Name")
         deal_size = st.number_input("Deal Size ($)", value=10000, step=100, format="%.0f")
         rate = st.number_input("Rate (e.g. 1.499)", value=1.499, format="%.3f")
         term = st.number_input("Term (Days)", value=120)
+        start_date = st.date_input("Start Date", value=datetime.today())
 
-        # Auto-calculations
+        # Live calculation
         payback = deal_size * rate
         per_payment = payback / term if term else 0
 
         st.markdown(f"<br><b>📈 Payback Amount:</b> <span style='color:#4CAF50;'>${payback:,.2f}</span>", unsafe_allow_html=True)
         st.markdown(f"<b>📆 {term} payments of:</b> <span style='color:#2196F3;'>${per_payment:,.2f}</span>", unsafe_allow_html=True)
 
-        start_date = st.date_input("Start Date", value=datetime.today())
         submitted = st.form_submit_button("Create Deal")
+
 
     if submitted:
         new_id = f"D{100+len(st.session_state.deals)}"
@@ -196,3 +198,37 @@ elif user_selected in st.session_state.users:
                 <div style='width:{pct*100:.1f}%;background:{bar};height:100%;border-radius:10px;'></div>
             </div>
             """, unsafe_allow_html=True)
+
+    if user_selected == "jaco (Admin View)":
+        st.sidebar.markdown("## 👥 View & Delete Users")
+        if st.sidebar.button("Show Users Table"):
+            st.dataframe(pd.DataFrame(st.session_state.users, columns=["Username"]))
+        user_to_delete = st.sidebar.selectbox("Select User to Delete", st.session_state.users)
+        if st.sidebar.button("Delete User"):
+            if user_to_delete in st.session_state.users:
+                st.session_state.users.remove(user_to_delete)
+                st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["User"] != user_to_delete]
+                st.success(f"User '{user_to_delete}' deleted.")
+
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("## 📄 View & Delete Deals")
+        if st.sidebar.button("Show Deal Table"):
+            st.dataframe(st.session_state.deals)
+        if not st.session_state.deals.empty:
+            deal_ids = st.session_state.deals["Deal ID"].tolist()
+            deal_to_delete = st.sidebar.selectbox("Select Deal to Delete", deal_ids)
+            if st.sidebar.button("Delete Deal"):
+                st.session_state.deals = st.session_state.deals[st.session_state.deals["Deal ID"] != deal_to_delete]
+                st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["Deal ID"] != deal_to_delete]
+                st.success(f"Deal '{deal_to_delete}' deleted.")
+
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("## 🤝 View & Delete Syndications")
+        if st.sidebar.button("Show Syndications Table"):
+            st.dataframe(st.session_state.syndications)
+        if not st.session_state.syndications.empty:
+            synd_ids = st.session_state.syndications["Deal ID"].unique().tolist()
+            synd_to_delete = st.sidebar.selectbox("Select Deal's Syndications to Delete", synd_ids)
+            if st.sidebar.button("Delete Syndication"):
+                st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["Deal ID"] != synd_to_delete]
+                st.success(f"All syndicators removed from deal '{synd_to_delete}'.")
