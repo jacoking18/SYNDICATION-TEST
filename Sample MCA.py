@@ -55,7 +55,7 @@ if user_selected == "jaco":
     with st.sidebar.form("add_deal_form"):
         biz_name = st.text_input("Business Name")
         deal_size = st.number_input("Deal Size ($)", value=100000)
-        rate = st.number_input("Rate (e.g. 1.48)", value=1.48)
+        rate = st.number_input("Rate (e.g. 1.499)", value=1.499, format="%.3f")
         term = st.number_input("Term (Days)", value=120)
         payback = st.number_input("Payback Amount ($)", value=148000)
         start_date = st.date_input("Start Date", value=datetime.today())
@@ -123,6 +123,24 @@ if user_selected == "jaco":
         })
         st.subheader("🔐 Registered Users (Admin Only)")
         st.dataframe(user_data)
+
+
+    # --- DELETE DEAL ---
+    st.sidebar.markdown("## 🗑 Delete Deal")
+    if not st.session_state.deals.empty:
+        deal_to_delete = st.sidebar.selectbox("Select Deal to Delete", st.session_state.deals["Deal ID"])
+        if st.sidebar.button("Delete Deal"):
+            st.session_state.deals = st.session_state.deals[st.session_state.deals["Deal ID"] != deal_to_delete]
+            st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["Deal ID"] != deal_to_delete]
+            st.success(f"Deleted deal {deal_to_delete}")
+
+    # --- DELETE USER ---
+    st.sidebar.markdown("## 🗑 Delete User")
+    user_to_delete = st.sidebar.selectbox("Select User to Delete", [u for u in st.session_state.users if u != 'jaco'])
+    if st.sidebar.button("Delete User"):
+        st.session_state.users.remove(user_to_delete)
+        st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["User"] != user_to_delete]
+        st.success(f"User '{user_to_delete}' removed from system.")
 
 # ------------------------ USER VIEW ------------------------
 elif user_selected in st.session_state.users:
