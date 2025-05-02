@@ -175,7 +175,7 @@ if user_selected == "admin":
 
     st.sidebar.markdown("## 🔄 Reset Syndication for a Deal")
     if not st.session_state.syndications.empty:
-        synd_deal_ids = st.session_state.syndications["Deal ID"].unique().tolist()
+        synd_deal_ids = st.session_state.syndications["Deal_ID"].unique().tolist()
         synd_to_clear = st.sidebar.selectbox("Clear Syndication for Deal", synd_deal_ids)
         if st.sidebar.button("Clear Syndication"):
             st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["Deal ID"] != synd_to_clear]
