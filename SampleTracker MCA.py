@@ -1,5 +1,5 @@
 
-# MCA Tracker – Collapsible Calendar with Visual Completion
+# MCA Tracker – Collapsible Calendar with Visual Completion (Fixed Start Date access)
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
@@ -36,24 +36,24 @@ if "syndications" not in st.session_state:
 
 if "payments" not in st.session_state:
     payments = []
-    for deal in st.session_state.deals.itertuples():
-        daily_amount = round(deal.Payback / deal.Term, 2)
-        for i in range(deal.Term):
-            date = deal.Start_Date + timedelta(days=i)
-            if deal.Deal_ID == "D101":
+    for idx, deal in st.session_state.deals.iterrows():
+        daily_amount = round(deal["Payback"] / deal["Term"], 2)
+        for i in range(deal["Term"]):
+            date = deal["Start Date"] + timedelta(days=i)
+            if deal["Deal ID"] == "D101":
                 status = "Paid"
-            elif deal.Deal_ID == "D102" and i == 10:
+            elif deal["Deal ID"] == "D102" and i == 10:
                 status = "Missed"
-            elif deal.Deal_ID == "D102" and i == 20:
+            elif deal["Deal ID"] == "D102" and i == 20:
                 status = "Adjusted"
-            elif deal.Deal_ID == "D102" and i < 25:
+            elif deal["Deal ID"] == "D102" and i < 25:
                 status = "Paid"
-            elif deal.Deal_ID == "D103" and i < 12:
+            elif deal["Deal ID"] == "D103" and i < 12:
                 status = "Paid"
             else:
                 status = "Pending"
             payments.append({
-                "Deal ID": deal.Deal_ID,
+                "Deal ID": deal["Deal ID"],
                 "Date": date.date(),
                 "Amount": daily_amount if status != "Adjusted" else round(daily_amount * 0.7, 2),
                 "Status": status
