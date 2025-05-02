@@ -1,6 +1,5 @@
-
 # MCA Tracker – Enhanced Admin Tools and Visuals
-# Author: Jacoking – April 2025
+# Author: Jacoking – May 2025
 
 import streamlit as st
 import pandas as pd
@@ -56,7 +55,7 @@ if user_selected == "admin":
         term = st.number_input("Term (Days)", min_value=1)
         date = st.date_input("Start Date", value=datetime.today())
         if st.form_submit_button("Create Deal"):
-            new_id = f"D{100 + len(st.session_state.deals)}"
+            new_id = f"D{datetime.now().strftime('%H%M%S')}"
             payback = size * rate
             new_row = pd.DataFrame([{
                 "Deal ID": new_id,
@@ -74,18 +73,21 @@ if user_selected == "admin":
     st.sidebar.markdown("## 🤝 Add Syndication")
     if not st.session_state.deals.empty:
         deal_names = st.session_state.deals["Deal ID"] + " - " + st.session_state.deals["Business Name"]
-        selected_deal = st.sidebar.selectbox("Select Deal", deal_names)
-        deal_id = selected_deal.split(" - ")[0]
-        with st.sidebar.form("assign_form"):
-            inputs = {}
-            for u in st.session_state.users:
-                inputs[u] = st.slider(f"{u.capitalize()} %", 0, 100, 0)
-            total = sum(inputs.values())
-            st.markdown(f"**Total Assigned:** {total}%")
-            if st.form_submit_button("Assign") and total <= 100:
-                rows = [{"Deal ID": deal_id, "User": user, "Percent": pct} for user, pct in inputs.items() if pct > 0]
-                st.session_state.syndications = pd.concat([st.session_state.syndications, pd.DataFrame(rows)], ignore_index=True)
-                st.success("Syndication updated.")
+        try:
+            selected_deal = st.sidebar.selectbox("Select Deal", deal_names)
+            deal_id = selected_deal.split(" - ")[0]
+            with st.sidebar.form("assign_form"):
+                inputs = {}
+                for u in st.session_state.users:
+                    inputs[u] = st.slider(f"{u.capitalize()} %", 0, 100, 0)
+                total = sum(inputs.values())
+                st.markdown(f"**Total Assigned:** {total}%")
+                if st.form_submit_button("Assign") and total <= 100:
+                    rows = [{"Deal ID": deal_id, "User": user, "Percent": pct} for user, pct in inputs.items() if pct > 0]
+                    st.session_state.syndications = pd.concat([st.session_state.syndications, pd.DataFrame(rows)], ignore_index=True)
+                    st.success("Syndication updated.")
+        except Exception as e:
+            st.sidebar.warning("⚠️ Please add a deal before assigning syndications.")
 
     st.subheader("📋 All Deals")
     for _, row in st.session_state.deals.iterrows():
