@@ -154,3 +154,30 @@ if user_selected == "admin":
                 pd.DataFrame(synd_rows)
             ], ignore_index=True)
             st.success(f"Syndication assigned to deal {selected_id}.")
+
+    st.sidebar.markdown("## 🧹 Delete User")
+    if len(st.session_state.users) > 0:
+        user_to_delete = st.sidebar.selectbox("Select User", st.session_state.users)
+        if st.sidebar.button("Delete User"):
+            st.session_state.users.remove(user_to_delete)
+            st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["User"] != user_to_delete]
+            st.success(f"User '{user_to_delete}' deleted.")
+
+    st.sidebar.markdown("## ❌ Delete Deal")
+    if not st.session_state.deals.empty:
+        deal_ids = st.session_state.deals["Deal ID"].tolist()
+        deal_to_delete = st.sidebar.selectbox("Select Deal", deal_ids)
+        if st.sidebar.button("Delete Deal"):
+            st.session_state.deals = st.session_state.deals[st.session_state.deals["Deal ID"] != deal_to_delete]
+            st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["Deal ID"] != deal_to_delete]
+            st.session_state.payments = st.session_state.payments[st.session_state.payments["Deal_ID"] != deal_to_delete]
+            st.success(f"Deal '{deal_to_delete}' removed.")
+
+    st.sidebar.markdown("## 🔄 Reset Syndication for a Deal")
+    if not st.session_state.syndications.empty:
+        synd_deal_ids = st.session_state.syndications["Deal ID"].unique().tolist()
+        synd_to_clear = st.sidebar.selectbox("Clear Syndication for Deal", synd_deal_ids)
+        if st.sidebar.button("Clear Syndication"):
+            st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["Deal ID"] != synd_to_clear]
+            st.success(f"Syndications removed for deal {synd_to_clear}.")
+
