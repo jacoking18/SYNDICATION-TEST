@@ -1,144 +1,174 @@
 
+# MCA SYNDICATION TRACKER – Final Version (Admin-Centric)
+# Author: Jacoking - April 2025
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 
+# ------------------------ CONFIG ------------------------
 st.set_page_config(page_title="MCA Syndication Tracker", layout="wide")
 st.title("📊 MCA Syndication Tracker")
 
-# SESSION INITIALIZATION
-if "users" not in st.session_state:
-    st.session_state.users = [{"name": "admin", "role": "admin", "email": "admin@example.com", "password": "admin"}]
-if "deals" not in st.session_state:
-    st.session_state.deals = pd.DataFrame(columns=["Deal ID", "Business Name", "Deal Size", "Rate", "Term", "Payback", "Start Date"])
-if "syndications" not in st.session_state:
-    st.session_state.syndications = pd.DataFrame(columns=["Deal ID", "User", "Percent"])
-if "payments" not in st.session_state:
-    st.session_state.payments = pd.DataFrame(columns=["Deal ID", "User", "Date", "Paid"])
+# ------------------------ CREDENTIALS ------------------------
+USER_CREDENTIALS = {
+    "albert": "pass1",
+    "jacob": "pass2",
+    "joel": "pass3",
+    "julian": "pass4",
+    "daniel": "pass5",
+    "verifier": "verifyme",
+    "jaco": "adminpass"
+}
 
-# LOGIN
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.logged_user = None
-
-if not st.session_state.logged_in:
-    st.subheader("🔐 Login")
-    login_email = st.text_input("Email")
-    login_pass = st.text_input("Password", type="password")
+# ------------------------ LOGIN ------------------------
+if "logged_in" not in st.session_state or not st.session_state.logged_in:
+    st.subheader("🔐 Login to Access the Tracker")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
     if st.button("Login"):
-        user = next((u for u in st.session_state.users if u["email"] == login_email and u["password"] == login_pass), None)
-        if user:
+        if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
             st.session_state.logged_in = True
-            st.session_state.logged_user = user
+            st.session_state.username = username
             st.experimental_rerun()
         else:
-            st.error("Invalid credentials")
+            st.error("❌ Invalid username or password.")
     st.stop()
 
-user = st.session_state.logged_user
-st.sidebar.markdown(f"👤 Logged in as: `{user['name']}` ({user['role'].capitalize()})")
+user_selected = st.session_state.username
 
-# ADMIN VIEW
-if user["role"] == "admin":
-    st.header("⚙️ Admin Dashboard")
+# ------------------------ STATE INIT ------------------------
+if "deals" not in st.session_state:
+    st.session_state.deals = pd.DataFrame(columns=["Deal ID", "Business Name", "Deal Size", "Payback", "Rate", "Start Date", "Term (Days)", "Defaulted"])
+if "syndications" not in st.session_state:
+    st.session_state.syndications = pd.DataFrame(columns=["Deal ID", "User", "% Funded"])
+if "users" not in st.session_state:
+    st.session_state.users = ["albert", "jacob", "joel", "julian", "daniel"]
 
-    st.subheader("➕ Create New Deal")
-    with st.form("create_deal_form"):
-        business = st.text_input("Business Name")
-        size = st.number_input("Deal Size ($)", min_value=1000, step=500)
-        rate = st.number_input("Rate (e.g., 1.48)", format="%.3f")
-        term = st.number_input("Term (Days)", min_value=1)
-        start = st.date_input("Start Date", value=datetime.today())
-        payback = size * rate
-        daily_payment = payback / term
-        st.markdown(f"💰 **Payback:** ${payback:,.2f}")
-        st.markdown(f"📅 **{term} payments of:** ${daily_payment:,.2f}")
-        submit_deal = st.form_submit_button("Create Deal")
-        if submit_deal:
-            deal_id = f"D{100 + len(st.session_state.deals)}"
-            new = pd.DataFrame([[deal_id, business, size, rate, term, payback, start]],
-                columns=["Deal ID", "Business Name", "Deal Size", "Rate", "Term", "Payback", "Start Date"])
-            st.session_state.deals = pd.concat([st.session_state.deals, new], ignore_index=True)
-            st.success(f"Deal {business} created!")
-
-    st.subheader("👥 Add User")
-    with st.form("add_user_form"):
-        name = st.text_input("Name")
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
-        role = st.selectbox("Role", ["investor", "verifier"])
-        if st.form_submit_button("Add User"):
-            st.session_state.users.append({"name": name, "email": email, "password": password, "role": role})
-            st.success(f"User {name} added.")
-
-    st.subheader("🤝 Assign Syndication")
-    deal_options = st.session_state.deals["Deal ID"] + " - " + st.session_state.deals["Business Name"]
-    selected_deal = st.selectbox("Select Deal", deal_options)
-    selected_id = selected_deal.split(" - ")[0]
-    with st.form("assign_synd_form"):
-        assigned_rows = []
-        for u in st.session_state.users:
-            if u["role"] == "investor":
-                pct = st.slider(f"{u['name']} %", 0, 100, 0)
-                if pct > 0:
-                    assigned_rows.append({"Deal ID": selected_id, "User": u["name"], "Percent": pct})
-        if st.form_submit_button("Assign Syndicators"):
-            st.session_state.syndications = pd.concat([st.session_state.syndications, pd.DataFrame(assigned_rows)], ignore_index=True)
-            st.success("Syndication saved.")
-
-    st.subheader("📊 Deal Table")
+# ------------------------ ADMIN VIEW ------------------------
+if user_selected == "jaco":
+    st.markdown("### 📋 CRM Overview")
     st.dataframe(st.session_state.deals)
-    st.subheader("📋 Syndication Overview")
     st.dataframe(st.session_state.syndications)
-    st.subheader("🧑‍💼 Users List")
-    st.dataframe(pd.DataFrame(st.session_state.users))
 
-# INVESTOR VIEW
-elif user["role"] == "investor":
-    st.header("📈 Investor Dashboard")
-    user_name = user["name"]
-    synd = st.session_state.syndications[st.session_state.syndications["User"] == user_name]
-    if synd.empty:
-        st.info("You are not part of any deals yet.")
+    # --- SIDEBAR FOR ADMIN ACTIONS ---
+    st.sidebar.markdown("## ➕ Add New Deal")
+    with st.sidebar.form("add_deal_form"):
+        biz_name = st.text_input("Business Name")
+        deal_size = st.number_input("Deal Size ($)", value=10000, step=100, format="%.0f")
+        rate = st.number_input("Rate (e.g. 1.499)", value=1.499, format="%.3f")
+        term = st.number_input("Term (Days)", value=120)
+        start_date = st.date_input("Start Date", value=datetime.today())
+
+        # Live calculation
+        payback = deal_size * rate
+        per_payment = payback / term if term else 0
+
+        st.markdown(f"<br><b>📈 Payback Amount:</b> <span style='color:#4CAF50;'>${payback:,.2f}</span>", unsafe_allow_html=True)
+        st.markdown(f"<b>📆 {term} payments of:</b> <span style='color:#2196F3;'>${per_payment:,.2f}</span>", unsafe_allow_html=True)
+
+        submitted = st.form_submit_button("Create Deal")
+
+    if submitted:
+        new_id = f"D{100 + len(st.session_state.deals)}"
+        new_deal = pd.DataFrame({
+            "Deal ID": [new_id],
+            "Business Name": [biz_name],
+            "Deal Size": [deal_size],
+            "Payback": [payback],
+            "Rate": [rate],
+            "Start Date": [start_date],
+            "Term (Days)": [term],
+            "Defaulted": [False]
+        })
+        st.session_state.deals = pd.concat([st.session_state.deals, new_deal], ignore_index=True)
+        st.success(f"New deal '{biz_name}' added.")
+
+    # --- ADD USER ---
+    st.sidebar.markdown("## 👤 Add New User")
+    with st.sidebar.form("add_user_form"):
+        new_user = st.text_input("New Username")
+        add_user_submit = st.form_submit_button("Add User")
+    if add_user_submit:
+        if new_user.strip() and new_user.lower() not in st.session_state.users:
+            st.session_state.users.append(new_user.strip().lower())
+            st.success(f"User '{new_user}' added.")
+        else:
+            st.error("Invalid or duplicate user.")
+
+    # --- ASSIGN SYNDICATION ---
+    st.sidebar.markdown("## 🤝 Assign Syndicators")
+    if not st.session_state.deals.empty:
+        deal_options = st.session_state.deals.apply(lambda row: f"{row['Deal ID']} - {row['Business Name']}", axis=1)
+        selected_option = st.sidebar.selectbox("Select Deal", deal_options)
+        synd_deal_id = selected_option.split(" - ")[0]
+        with st.sidebar.form("assign_syndication_form"):
+            st.markdown("Assign % to each user (total ≤ 100%)")
+            synd_inputs = {}
+            for user in st.session_state.users:
+                synd_inputs[user] = st.slider(f"{user.capitalize()} %", 0, 100, 0)
+            total_pct = sum(synd_inputs.values())
+            if total_pct > 100:
+                st.error(f"⚠️ Total {total_pct}% exceeds 100%.")
+            else:
+                st.success(f"✅ Total: {total_pct}%")
+            assign_submit = st.form_submit_button("Assign")
+        if assign_submit and total_pct <= 100:
+            rows = []
+            for user, pct in synd_inputs.items():
+                if pct > 0:
+                    rows.append({"Deal ID": synd_deal_id, "User": user, "% Funded": pct / 100})
+            st.session_state.syndications = pd.concat([st.session_state.syndications, pd.DataFrame(rows)], ignore_index=True)
+            st.success("Syndicators assigned successfully.")
+
+    # --- VIEW USERS TABLE ---
+    st.sidebar.markdown("## 👥 View All Users")
+    if st.sidebar.button("Show Users Table"):
+        user_data = pd.DataFrame({
+            "Username": st.session_state.users,
+            "Password": [USER_CREDENTIALS.get(u, "unknown") for u in st.session_state.users]
+        })
+        st.subheader("🔐 Registered Users (Admin Only)")
+        st.dataframe(user_data)
+
+    # --- DELETE DEAL ---
+    st.sidebar.markdown("## 🗑 Delete Deal")
+    if not st.session_state.deals.empty:
+        deal_to_delete = st.sidebar.selectbox("Select Deal to Delete", st.session_state.deals["Deal ID"])
+        if st.sidebar.button("Delete Deal"):
+            st.session_state.deals = st.session_state.deals[st.session_state.deals["Deal ID"] != deal_to_delete]
+            st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["Deal ID"] != deal_to_delete]
+            st.success(f"Deleted deal {deal_to_delete}")
+
+    # --- DELETE USER ---
+    st.sidebar.markdown("## 🗑 Delete User")
+    user_to_delete = st.sidebar.selectbox("Select User to Delete", [u for u in st.session_state.users if u != 'jaco'])
+    if st.sidebar.button("Delete User"):
+        st.session_state.users.remove(user_to_delete)
+        st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["User"] != user_to_delete]
+        st.success(f"User '{user_to_delete}' removed from system.")
+
+# ------------------------ INVESTOR VIEW ------------------------
+elif user_selected in st.session_state.users:
+    merged = pd.merge(st.session_state.syndications, st.session_state.deals, on="Deal ID", how="left")
+    user_deals = merged[merged["User"] == user_selected]
+
+    st.subheader(f"💼 Deals for: {user_selected.capitalize()}")
+    if user_deals.empty:
+        st.info("No deals assigned yet.")
     else:
-        merged = pd.merge(synd, st.session_state.deals, on="Deal ID")
-        total_invested = (merged["Percent"] / 100) * merged["Deal Size"]
-        total_return = (merged["Percent"] / 100) * merged["Payback"]
-        collected = 0.6 * total_return  # Assume 60% collected
-        st.metric("💵 Invested", f"${total_invested.sum():,.2f}")
-        st.metric("💰 Expected Return", f"${total_return.sum():,.2f}")
-        st.metric("📥 Collected", f"${collected.sum():,.2f}")
-        st.metric("📤 Remaining", f"${(total_return - collected).sum():,.2f}")
-
-        st.subheader("💼 Your Deals")
-        for _, row in merged.iterrows():
-            term = row["Term"]
-            paid = int(0.6 * term)
-            pct = paid / term * 100
-            st.markdown(f"**{row['Business Name']}** — {paid}/{term} payments")
-            st.progress(pct)
-
-# VERIFIER VIEW
-elif user["role"] == "verifier":
-    st.header("🔎 Daily Verifier")
-    today = datetime.today().date()
-    for _, deal in st.session_state.deals.iterrows():
-        for synd in st.session_state.syndications[st.session_state.syndications["Deal ID"] == deal["Deal ID"]].itertuples():
-            label = f"{deal['Business Name']} – {synd.User} – {today}"
-            default_paid = True
-            key = f"{deal['Deal ID']}_{synd.User}_{today}"
-            paid = st.checkbox(label, value=default_paid, key=key)
-            if not st.session_state.payments[(st.session_state.payments["Deal ID"] == deal["Deal ID"]) &
-                                              (st.session_state.payments["User"] == synd.User) &
-                                              (st.session_state.payments["Date"] == today)].any().any():
-                st.session_state.payments = pd.concat([
-                    st.session_state.payments,
-                    pd.DataFrame([[deal["Deal ID"], synd.User, today, paid]], columns=["Deal ID", "User", "Date", "Paid"])
-                ], ignore_index=True)
-
-# LOGOUT
-st.sidebar.markdown("---")
-if st.sidebar.button("Logout"):
-    st.session_state.logged_in = False
-    st.session_state.logged_user = None
-    st.experimental_rerun()
+        col1, col2, col3 = st.columns(3)
+        total_funded = user_deals["% Funded"] * user_deals["Deal Size"]
+        total_payback = user_deals["% Funded"] * user_deals["Payback"]
+        col1.metric("Total Funded", f"${total_funded.sum():,.0f}")
+        col2.metric("Expected Return", f"${total_payback.sum():,.0f}")
+        col3.metric("Outstanding", f"${(total_payback.sum()*0.6):,.0f}")
+        st.markdown("### 📊 Progress")
+        for _, row in user_deals.iterrows():
+            biz = row['Business Name']
+            term = int(row['Term (Days)'])
+            made = int(0.6 * term)
+            pct = made / term
+            bar = "#4CAF50" if not row["Defaulted"] else "#F44336"
+            st.markdown(f"<b>{biz}</b> — Collected: ({made}/{term}) payments", unsafe_allow_html=True)
+            st.markdown(f"<div style='background:#ddd;border-radius:10px;width:60%;height:16px;'><div style='width:{pct*100:.1f}%;background:{bar};height:100%;border-radius:10px;'></div></div>", unsafe_allow_html=True)
