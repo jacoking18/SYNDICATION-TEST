@@ -9,7 +9,7 @@ st.set_page_config(page_title="MCA Tracker", layout="wide")
 st.title("MCA Syndication Tracker")
 
 # -------- Sidebar Login --------
-user_selected = st.sidebar.selectbox("View As", ["admin", "albert", "jacobo", "matty", "joel", "zack", "juli"])
+user_selected = st.sidebar.selectbox("View As", ["admin"] + st.session_state.get("users", []))
 
 # -------- Initialize Data --------
 if "users" not in st.session_state:
@@ -59,15 +59,15 @@ if "payments" not in st.session_state:
 # -------- Deal Display Function --------
 def show_deal_details(deal):
     st.markdown(f"### {deal['Business Name']} – ${deal['Deal Size']:,.0f} @ {deal['Rate']} for {deal['Term']} days")
-    paid_count = st.session_state.payments.query("Deal_ID == @deal['Deal_ID'] and Status == 'Paid'").shape[0]
+    cal = st.session_state.payments.query("Deal_ID == @deal['Deal_ID']").copy()
+    paid_count = cal.query("Status == 'Paid'").shape[0]
     progress = paid_count / deal["Term"]
     color = "#4CAF50" if progress == 1 else "#2196F3"
     bg_bar = f"<div style='background:#ccc;border-radius:10px;height:20px;width:100%;'><div style='width:{progress*100:.1f}%;height:100%;background:{color};border-radius:10px;'></div></div>"
     st.markdown(bg_bar, unsafe_allow_html=True)
-    st.markdown(f"**{paid_count}/{deal['Term']} payments**")
+    st.markdown(f"**{paid_count}/{deal['Term']} payments**" + (" 💰" if progress == 1 else ""))
 
     with st.expander("Daily Payment Calendar"):
-        cal = st.session_state.payments.query("Deal_ID == @deal['Deal_ID']").copy()
         cal = cal.sort_values("Date")
         for i, row in cal.iterrows():
             color = "#4CAF50" if row["Status"] == "Paid" else "#F44336" if row["Status"] == "Missed" else "#FF9800"
@@ -79,6 +79,19 @@ def show_deal_details(deal):
                 new_amount = row["Amount"]
                 if new_status == "Adjusted":
                     new_amount = cols[3].number_input("Adj. Amt", value=row["Amount"], key=f"amt_{deal['Deal_ID']}_{i}")
+                    extend_days = cols[3].number_input("Extend Days", min_value=0, value=0, key=f"extend_{deal['Deal_ID']}_{i}")
+                    if extend_days > 0:
+                        for j in range(extend_days):
+                            next_date = row['Date'] + timedelta(days=j+1)
+                            st.session_state.payments = pd.concat([
+                                st.session_state.payments,
+                                pd.DataFrame([{
+                                    "Deal_ID": deal['Deal_ID'],
+                                    "Date": next_date,
+                                    "Amount": new_amount,
+                                    "Status": "Pending"
+                                }])
+                            ], ignore_index=True)
                 if new_status != row["Status"] or new_amount != row["Amount"]:
                     st.session_state.payments.at[i, "Status"] = new_status
                     st.session_state.payments.at[i, "Amount"] = new_amount
@@ -151,10 +164,16 @@ else:
     else:
         total_inv = (my_deals["Percent"] / 100 * my_deals["Deal Size"]).sum()
         total_ret = (my_deals["Percent"] / 100 * my_deals["Payback"]).sum()
-        collected = 0.6 * total_ret
+        collected = st.session_state.payments.query("Deal_ID in @my_deals['Deal_ID'].tolist() and Status == 'Paid'")
+        collected_amt = 0
+        for d in my_deals.itertuples():
+            user_percent = d.Percent / 100
+            paid = st.session_state.payments.query("Deal_ID == @d.Deal_ID and Status == 'Paid'")
+            collected_amt += paid["Amount"].sum() * user_percent
         st.metric("Invested", f"${total_inv:,.2f}")
         st.metric("Expected Return", f"${total_ret:,.2f}")
-        st.metric("Collected", f"${collected:,.2f}")
-        st.metric("Remaining", f"${total_ret - collected:,.2f}")
+        st.metric("Collected", f"${collected_amt:,.2f}")
+        st.metric("Available to Withdraw", f"${collected_amt:,.2f}")
+        st.metric("Remaining", f"${total_ret - collected_amt:,.2f}")
         for _, d in my_deals.iterrows():
             show_deal_details(d)
