@@ -135,6 +135,63 @@ if user_selected == "admin":
     for u, b in balances.items():
         st.markdown(f"**{u.capitalize()}**: Drawn = ${b['Drawn']:.2f} | Available = ${b['Available']:.2f}")
 
+    st.sidebar.markdown("## ➕ Add User")
+    with st.sidebar.form("add_user_form"):
+        new_user = st.text_input("Username").lower().strip()
+        if st.form_submit_button("Add User") and new_user:
+            if new_user not in st.session_state.users:
+                st.session_state.users.append(new_user)
+                st.success(f"User '{new_user}' added.")
+            else:
+                st.warning("User already exists.")
+
+    st.sidebar.markdown("## 💼 Add Deal")
+    with st.sidebar.form("add_deal_form"):
+        biz = st.text_input("Business Name")
+        size = st.number_input("Deal Size ($)", min_value=0)
+        rate = st.number_input("Rate (e.g. 1.499)", value=1.499, format="%.3f")
+        term = st.number_input("Term (Days)", min_value=1)
+        start = st.date_input("Start Date", value=datetime.today())
+        if st.form_submit_button("Create Deal") and biz:
+            deal_id = f"D{100 + len(st.session_state.deals)}"
+            payback = size * rate
+            st.session_state.deals = pd.concat([
+                st.session_state.deals,
+                pd.DataFrame([{
+                    "Deal_ID": deal_id,
+                    "Business Name": biz,
+                    "Deal Size": size,
+                    "Rate": rate,
+                    "Term": term,
+                    "Payback": payback,
+                    "Start_Date": start,
+                    "Defaulted": False
+                }])
+            ], ignore_index=True)
+            st.success(f"Deal '{biz}' created.")
+
+    st.sidebar.markdown("## 🤝 Assign Syndication")
+    if not st.session_state.deals.empty:
+        deal_names = st.session_state.deals["Deal_ID"] + " - " + st.session_state.deals["Business Name"]
+        selected_deal = st.sidebar.selectbox("Select Deal", deal_names)
+        selected_id = selected_deal.split(" - ")[0]
+        with st.sidebar.form("assign_form"):
+            st.markdown("Assign % (total ≤ 100%)")
+            inputs = {u: st.slider(f"{u}", 0, 100, 0) for u in st.session_state.users}
+            total = sum(inputs.values())
+            st.markdown(f"**Total Assigned: {total}%**")
+            assign = st.form_submit_button("Assign")
+        if assign and total <= 100:
+            synd_rows = [
+                {"Deal_ID": selected_id, "User": u, "Percent": p}
+                for u, p in inputs.items() if p > 0
+            ]
+            st.session_state.syndications = pd.concat([
+                st.session_state.syndications,
+                pd.DataFrame(synd_rows)
+            ], ignore_index=True)
+            st.success(f"Syndication assigned to deal {selected_id}.")
+
 else:
     st.header(f"{user_selected.capitalize()}'s Deals")
     synd = st.session_state.syndications.query("User == @user_selected")
