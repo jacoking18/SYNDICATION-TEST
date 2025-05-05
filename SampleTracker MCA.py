@@ -192,6 +192,33 @@ if user_selected == "admin":
             ], ignore_index=True)
             st.success(f"Syndication assigned to deal {selected_id}.")
 
+    # -------- Delete Block --------
+    st.sidebar.markdown("## 🗑️ Delete")
+    delete_type = st.sidebar.selectbox("Delete Type", ["Deal", "User", "Syndication"])
+    if delete_type == "Deal":
+        deal_ids = st.session_state.deals["Deal_ID"].tolist()
+        selected = st.sidebar.selectbox("Select Deal to Delete", deal_ids)
+        if st.sidebar.button("Delete Deal"):
+            st.session_state.deals = st.session_state.deals[st.session_state.deals["Deal_ID"] != selected]
+            st.session_state.payments = st.session_state.payments[st.session_state.payments["Deal_ID"] != selected]
+            st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["Deal_ID"] != selected]
+            st.success(f"Deleted deal {selected}")
+    elif delete_type == "User":
+        selected = st.sidebar.selectbox("Select User to Delete", st.session_state.users)
+        if st.sidebar.button("Delete User"):
+            st.session_state.users.remove(selected)
+            st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["User"] != selected]
+            st.success(f"Deleted user {selected}")
+    elif delete_type == "Syndication":
+        unique_synd = st.session_state.syndications.drop_duplicates(subset=["Deal_ID", "User"])
+        options = [f"{row['Deal_ID']} - {row['User']}" for _, row in unique_synd.iterrows()]
+        selected = st.sidebar.selectbox("Select Syndication to Delete", options)
+        deal_id, user = selected.split(" - ")
+        if st.sidebar.button("Delete Syndication"):
+            mask = (st.session_state.syndications["Deal_ID"] == deal_id) & (st.session_state.syndications["User"] == user)
+            st.session_state.syndications = st.session_state.syndications[~mask]
+            st.success(f"Deleted syndication {deal_id} - {user}")
+
 else:
     st.header(f"{user_selected.capitalize()}'s Deals")
     synd = st.session_state.syndications.query("User == @user_selected")
