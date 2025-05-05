@@ -36,17 +36,19 @@ if "syndications" not in st.session_state:
         {"Deal_ID": "D103", "User": "jacobo", "Percent": 50}
     ])
 
+if "modified_deals" not in st.session_state:
+    st.session_state.modified_deals = {}
+
 def calculate_payments(deal_id, term, start_date, payback):
     daily = round(payback / term, 2)
     payments = []
     for i in range(term):
         date = start_date + timedelta(days=i)
-        status = "Pending"
         payments.append({
             "Deal_ID": deal_id,
             "Date": date.date(),
             "Amount": daily,
-            "Status": status
+            "Status": "Pending"
         })
     return payments
 
@@ -78,14 +80,18 @@ def calculate_user_balances():
 
 # -------- Deal Display Function --------
 def show_deal_details(deal):
-    st.markdown(f"### {deal['Business Name']} – ${deal['Deal Size']:,.0f} @ {deal['Rate']} for {deal['Term']} days")
+    modified = st.session_state.modified_deals.get(deal['Deal_ID'], {})
+    term = modified.get("Term", deal["Term"])
+    payback = modified.get("Payback", deal["Payback"])
+    st.markdown(f"### {deal['Business Name']} – ${deal['Deal Size']:,.0f} @ {deal['Rate']} for {deal['Term']} days" +
+                (f" → Modified: {term} days" if term != deal['Term'] else ""))
+
     cal = st.session_state.payments.query("Deal_ID == @deal['Deal_ID']").copy()
     paid_count = cal.query("Status == 'Paid'").shape[0]
-    progress = paid_count / deal["Term"]
+    progress = paid_count / term
     color = "#4CAF50" if progress == 1 else "#2196F3"
-    bg_bar = f"<div style='background:#ccc;border-radius:10px;height:20px;width:100%;'><div style='width:{progress*100:.1f}%;height:100%;background:{color};border-radius:10px;'></div></div>"
-    st.markdown(bg_bar, unsafe_allow_html=True)
-    st.markdown(f"**{paid_count}/{deal['Term']} payments**" + (" 💰" if progress == 1 else ""))
+    st.markdown(f"<div style='background:#ccc;border-radius:10px;height:20px;width:100%;'><div style='width:{progress*100:.1f}%;height:100%;background:{color};border-radius:10px;'></div></div>", unsafe_allow_html=True)
+    st.markdown(f"**{paid_count}/{term} payments**" + (" 💰" if progress == 1 else ""))
 
     with st.expander("Daily Payment Calendar"):
         cal = cal.sort_values("Date")
@@ -118,6 +124,9 @@ def show_deal_details(deal):
                                     "Status": "Pending"
                                 }])
                             ], ignore_index=True)
+                        new_term = term + extend_days
+                        new_payback = payback + (new_amount * extend_days)
+                        st.session_state.modified_deals[deal['Deal_ID']] = {"Term": new_term, "Payback": new_payback}
                 if new_status != row["Status"] or new_amount != row["Amount"]:
                     st.session_state.payments.at[i, "Status"] = new_status
                     st.session_state.payments.at[i, "Amount"] = new_amount
@@ -134,90 +143,6 @@ if user_selected == "admin":
     balances = calculate_user_balances()
     for u, b in balances.items():
         st.markdown(f"**{u.capitalize()}**: Drawn = ${b['Drawn']:.2f} | Available = ${b['Available']:.2f}")
-
-    st.sidebar.markdown("## ➕ Add User")
-    with st.sidebar.form("add_user_form"):
-        new_user = st.text_input("Username").lower().strip()
-        if st.form_submit_button("Add User") and new_user:
-            if new_user not in st.session_state.users:
-                st.session_state.users.append(new_user)
-                st.success(f"User '{new_user}' added.")
-            else:
-                st.warning("User already exists.")
-
-    st.sidebar.markdown("## 💼 Add Deal")
-    with st.sidebar.form("add_deal_form"):
-        biz = st.text_input("Business Name")
-        size = st.number_input("Deal Size ($)", min_value=0)
-        rate = st.number_input("Rate (e.g. 1.499)", value=1.499, format="%.3f")
-        term = st.number_input("Term (Days)", min_value=1)
-        start = st.date_input("Start Date", value=datetime.today())
-        if st.form_submit_button("Create Deal") and biz:
-            deal_id = f"D{100 + len(st.session_state.deals)}"
-            payback = size * rate
-            st.session_state.deals = pd.concat([
-                st.session_state.deals,
-                pd.DataFrame([{
-                    "Deal_ID": deal_id,
-                    "Business Name": biz,
-                    "Deal Size": size,
-                    "Rate": rate,
-                    "Term": term,
-                    "Payback": payback,
-                    "Start_Date": start,
-                    "Defaulted": False
-                }])
-            ], ignore_index=True)
-            st.success(f"Deal '{biz}' created.")
-
-    st.sidebar.markdown("## 🤝 Assign Syndication")
-    if not st.session_state.deals.empty:
-        deal_names = st.session_state.deals["Deal_ID"] + " - " + st.session_state.deals["Business Name"]
-        selected_deal = st.sidebar.selectbox("Select Deal", deal_names)
-        selected_id = selected_deal.split(" - ")[0]
-        with st.sidebar.form("assign_form"):
-            st.markdown("Assign % (total ≤ 100%)")
-            inputs = {u: st.slider(f"{u}", 0, 100, 0) for u in st.session_state.users}
-            total = sum(inputs.values())
-            st.markdown(f"**Total Assigned: {total}%**")
-            assign = st.form_submit_button("Assign")
-        if assign and total <= 100:
-            synd_rows = [
-                {"Deal_ID": selected_id, "User": u, "Percent": p}
-                for u, p in inputs.items() if p > 0
-            ]
-            st.session_state.syndications = pd.concat([
-                st.session_state.syndications,
-                pd.DataFrame(synd_rows)
-            ], ignore_index=True)
-            st.success(f"Syndication assigned to deal {selected_id}.")
-
-    # -------- Delete Block --------
-    st.sidebar.markdown("## 🗑️ Delete")
-    delete_type = st.sidebar.selectbox("Delete Type", ["Deal", "User", "Syndication"])
-    if delete_type == "Deal":
-        deal_ids = st.session_state.deals["Deal_ID"].tolist()
-        selected = st.sidebar.selectbox("Select Deal to Delete", deal_ids)
-        if st.sidebar.button("Delete Deal"):
-            st.session_state.deals = st.session_state.deals[st.session_state.deals["Deal_ID"] != selected]
-            st.session_state.payments = st.session_state.payments[st.session_state.payments["Deal_ID"] != selected]
-            st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["Deal_ID"] != selected]
-            st.success(f"Deleted deal {selected}")
-    elif delete_type == "User":
-        selected = st.sidebar.selectbox("Select User to Delete", st.session_state.users)
-        if st.sidebar.button("Delete User"):
-            st.session_state.users.remove(selected)
-            st.session_state.syndications = st.session_state.syndications[st.session_state.syndications["User"] != selected]
-            st.success(f"Deleted user {selected}")
-    elif delete_type == "Syndication":
-        unique_synd = st.session_state.syndications.drop_duplicates(subset=["Deal_ID", "User"])
-        options = [f"{row['Deal_ID']} - {row['User']}" for _, row in unique_synd.iterrows()]
-        selected = st.sidebar.selectbox("Select Syndication to Delete", options)
-        deal_id, user = selected.split(" - ")
-        if st.sidebar.button("Delete Syndication"):
-            mask = (st.session_state.syndications["Deal_ID"] == deal_id) & (st.session_state.syndications["User"] == user)
-            st.session_state.syndications = st.session_state.syndications[~mask]
-            st.success(f"Deleted syndication {deal_id} - {user}")
 
 else:
     st.header(f"{user_selected.capitalize()}'s Deals")
