@@ -48,7 +48,7 @@ def calculate_payments(deal_id, term, start_date, payback):
             "Deal_ID": deal_id,
             "Date": date.date(),
             "Amount": daily,
-            "Status": "Pending"
+            "Status": ""
         })
     return payments
 
@@ -101,12 +101,9 @@ def show_deal_details(deal):
             cols[0].markdown(f"{row['Date']}")
             cols[1].markdown(f"${row['Amount']:.2f}")
             if user_selected == "admin":
-                status_options = ["Paid", "Missed", "Adjusted"]
-                current_status = row["Status"] if row["Status"] in status_options else "Paid"
-                try:
-                    status_index = status_options.index(current_status)
-                except ValueError:
-                    status_index = 0
+                status_options = ["", "Paid", "Missed", "Adjusted"]
+                current_status = row["Status"] if row["Status"] in status_options else ""
+                status_index = status_options.index(current_status)
                 new_status = cols[2].selectbox("", status_options, index=status_index, key=f"status_{deal['Deal_ID']}_{i}")
                 new_amount = row["Amount"]
                 if new_status == "Adjusted":
@@ -121,7 +118,7 @@ def show_deal_details(deal):
                                     "Deal_ID": deal['Deal_ID'],
                                     "Date": next_date,
                                     "Amount": new_amount,
-                                    "Status": "Pending"
+                                    "Status": ""
                                 }])
                             ], ignore_index=True)
                         new_term = term + extend_days
