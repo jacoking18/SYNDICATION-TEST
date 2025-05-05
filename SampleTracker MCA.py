@@ -6,7 +6,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 st.set_page_config(page_title="MCA Tracker", layout="wide")
-st.title("📊 MCA Syndication Tracker")
+st.title("MCA Syndication Tracker")
 
 # -------- Sidebar Login --------
 user_selected = st.sidebar.selectbox("View As", ["admin", "albert", "jacobo", "matty", "joel", "zack", "juli"])
@@ -41,22 +41,11 @@ def calculate_payments(deal_id, term, start_date, payback):
     payments = []
     for i in range(term):
         date = start_date + timedelta(days=i)
-        if deal_id == "D101":
-            status = "Paid"
-        elif deal_id == "D102" and i == 10:
-            status = "Missed"
-        elif deal_id == "D102" and i == 20:
-            status = "Adjusted"
-        elif deal_id == "D102" and i < 25:
-            status = "Paid"
-        elif deal_id == "D103" and i < 12:
-            status = "Paid"
-        else:
-            status = "Pending"
+        status = "Pending"
         payments.append({
             "Deal_ID": deal_id,
             "Date": date.date(),
-            "Amount": daily if status != "Adjusted" else round(daily * 0.7, 2),
+            "Amount": daily,
             "Status": status
         })
     return payments
@@ -69,33 +58,41 @@ if "payments" not in st.session_state:
 
 # -------- Deal Display Function --------
 def show_deal_details(deal):
-    st.markdown(f"### 🔷 {deal['Business Name']} – ${deal['Deal Size']:,.0f} @ {deal['Rate']} for {deal['Term']} days")
+    st.markdown(f"### {deal['Business Name']} – ${deal['Deal Size']:,.0f} @ {deal['Rate']} for {deal['Term']} days")
     paid_count = st.session_state.payments.query("Deal_ID == @deal['Deal_ID'] and Status == 'Paid'").shape[0]
     progress = paid_count / deal["Term"]
     color = "#4CAF50" if progress == 1 else "#2196F3"
     bg_bar = f"<div style='background:#ccc;border-radius:10px;height:20px;width:100%;'><div style='width:{progress*100:.1f}%;height:100%;background:{color};border-radius:10px;'></div></div>"
     st.markdown(bg_bar, unsafe_allow_html=True)
-    st.markdown(f"**{paid_count}/{deal['Term']} payments** {'💰' if progress == 1 else ''}")
+    st.markdown(f"**{paid_count}/{deal['Term']} payments**")
 
-    with st.expander("📅 Daily Payment Calendar"):
+    with st.expander("Daily Payment Calendar"):
         cal = st.session_state.payments.query("Deal_ID == @deal['Deal_ID']").copy()
         cal = cal.sort_values("Date")
-        for row in cal.itertuples():
-            icon = "✅" if row.Status == "Paid" else "❌" if row.Status == "Missed" else "✏️"
-            color = "#4CAF50" if row.Status == "Paid" else "#F44336" if row.Status == "Missed" else "#FF9800"
-            st.markdown(
-                f"<div style='display:flex;gap:20px;'><span>{row.Date}</span><span>${row.Amount:.2f}</span><span style='color:{color};font-weight:bold;'>{icon} {row.Status}</span></div>",
-                unsafe_allow_html=True
-            )
+        for i, row in cal.iterrows():
+            color = "#4CAF50" if row["Status"] == "Paid" else "#F44336" if row["Status"] == "Missed" else "#FF9800"
+            cols = st.columns([3, 2, 2, 2])
+            cols[0].markdown(f"{row['Date']}")
+            cols[1].markdown(f"${row['Amount']:.2f}")
+            if user_selected == "admin":
+                new_status = cols[2].selectbox("", ["Paid", "Missed", "Adjusted"], index=["Paid", "Missed", "Adjusted"].index(row["Status"]), key=f"status_{deal['Deal_ID']}_{i}")
+                new_amount = row["Amount"]
+                if new_status == "Adjusted":
+                    new_amount = cols[3].number_input("Adj. Amt", value=row["Amount"], key=f"amt_{deal['Deal_ID']}_{i}")
+                if new_status != row["Status"] or new_amount != row["Amount"]:
+                    st.session_state.payments.at[i, "Status"] = new_status
+                    st.session_state.payments.at[i, "Amount"] = new_amount
+            else:
+                cols[2].markdown(f"<span style='color:{color};font-weight:bold;'>{row['Status']}</span>", unsafe_allow_html=True)
 
 # -------- Views --------
 if user_selected == "admin":
-    st.header("👑 Admin Dashboard")
+    st.header("Admin Dashboard")
     for _, d in st.session_state.deals.iterrows():
         show_deal_details(d)
 
     # Admin Tools (Sidebar)
-    st.sidebar.markdown("## ➕ Add User")
+    st.sidebar.markdown("## Add User")
     with st.sidebar.form("add_user"):
         new_user = st.text_input("Username").lower().strip()
         if st.form_submit_button("Add") and new_user:
@@ -105,7 +102,7 @@ if user_selected == "admin":
             else:
                 st.warning("User already exists.")
 
-    st.sidebar.markdown("## 💼 Add Deal")
+    st.sidebar.markdown("## Add Deal")
     with st.sidebar.form("add_deal"):
         biz = st.text_input("Business Name")
         size = st.number_input("Deal Size", min_value=0)
@@ -128,7 +125,7 @@ if user_selected == "admin":
             ], ignore_index=True)
             st.success(f"Deal '{biz}' created.")
 
-    st.sidebar.markdown("## 🤝 Assign Syndication")
+    st.sidebar.markdown("## Assign Syndication")
     deal_list = st.session_state.deals["Deal_ID"] + " - " + st.session_state.deals["Business Name"]
     selected_deal = st.sidebar.selectbox("Select Deal", deal_list)
     deal_id = selected_deal.split(" - ")[0]
@@ -146,7 +143,7 @@ if user_selected == "admin":
             st.success("Syndication Assigned.")
 
 else:
-    st.header(f"👤 {user_selected.capitalize()}'s Dashboard")
+    st.header(f"{user_selected.capitalize()}'s Dashboard")
     syn = st.session_state.syndications.query("User == @user_selected")
     my_deals = pd.merge(syn, st.session_state.deals, on="Deal_ID")
     if my_deals.empty:
