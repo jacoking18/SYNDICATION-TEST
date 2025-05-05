@@ -144,6 +144,77 @@ if user_selected == "admin":
     for u, b in balances.items():
         st.markdown(f"**{u.capitalize()}**: Drawn = ${b['Drawn']:.2f} | Available = ${b['Available']:.2f}")
 
+    # Admin Tools
+    st.sidebar.header("Admin Tools")
+    st.sidebar.subheader("Add User")
+    new_user = st.sidebar.text_input("New Username")
+    if st.sidebar.button("Add User") and new_user and new_user not in st.session_state.users:
+        st.session_state.users.append(new_user)
+        st.success(f"User '{new_user}' added.")
+
+    st.sidebar.subheader("Add Deal")
+    with st.sidebar.form("add_deal_form"):
+        name = st.text_input("Business Name")
+        size = st.number_input("Deal Size", min_value=0)
+        rate = st.number_input("Rate", value=1.5)
+        term = st.number_input("Term (Days)", min_value=1)
+        start = st.date_input("Start Date", value=datetime.today())
+        submit = st.form_submit_button("Create Deal")
+        if submit and name:
+            did = f"D{100 + len(st.session_state.deals)}"
+            payback = size * rate
+            st.session_state.deals = pd.concat([
+                st.session_state.deals,
+                pd.DataFrame([{ "Deal_ID": did, "Business Name": name, "Deal Size": size, "Rate": rate,
+                                "Term": term, "Payback": payback, "Start_Date": start, "Defaulted": False }])
+            ], ignore_index=True)
+            st.success(f"Deal '{name}' created.")
+
+    st.sidebar.subheader("Assign Syndication")
+    if not st.session_state.deals.empty:
+        deal_names = st.session_state.deals["Deal_ID"] + " - " + st.session_state.deals["Business Name"]
+        selected_deal = st.sidebar.selectbox("Select Deal", deal_names)
+        selected_id = selected_deal.split(" - ")[0]
+        with st.sidebar.form("assign_form"):
+            st.markdown("Assign % (total ≤ 100%)")
+            inputs = {u: st.slider(f"{u}", 0, 100, 0) for u in st.session_state.users}
+            total = sum(inputs.values())
+            st.markdown(f"**Total Assigned: {total}%**")
+            assign = st.form_submit_button("Assign")
+            if assign and total <= 100:
+                synd_rows = [
+                    {"Deal_ID": selected_id, "User": u, "Percent": p}
+                    for u, p in inputs.items() if p > 0
+                ]
+                st.session_state.syndications = pd.concat([
+                    st.session_state.syndications,
+                    pd.DataFrame(synd_rows)
+                ], ignore_index=True)
+                st.success(f"Syndication assigned to deal {selected_id}.")
+
+    st.sidebar.subheader("Delete Records")
+    delete_type = st.sidebar.selectbox("Delete Type", ["User", "Deal", "Syndication"])
+    if delete_type == "User":
+        selected = st.sidebar.selectbox("Select User", st.session_state.users)
+        if st.sidebar.button("Delete User"):
+            st.session_state.users.remove(selected)
+            st.success(f"User '{selected}' deleted.")
+    elif delete_type == "Deal":
+        deal_ids = st.session_state.deals["Deal_ID"].tolist()
+        selected = st.sidebar.selectbox("Select Deal", deal_ids)
+        if st.sidebar.button("Delete Deal"):
+            st.session_state.deals = st.session_state.deals[st.session_state.deals["Deal_ID"] != selected]
+            st.session_state.payments = st.session_state.payments[st.session_state.payments["Deal_ID"] != selected]
+            st.success(f"Deal '{selected}' deleted.")
+    elif delete_type == "Syndication":
+        sid_list = st.session_state.syndications[["Deal_ID", "User"]].apply(lambda x: f"{x['Deal_ID']} - {x['User']}", axis=1)
+        selected = st.sidebar.selectbox("Select Syndication", sid_list)
+        deal_id, user = selected.split(" - ")
+        if st.sidebar.button("Delete Syndication"):
+            st.session_state.syndications = st.session_state.syndications[
+                ~((st.session_state.syndications["Deal_ID"] == deal_id) & (st.session_state.syndications["User"] == user))]
+            st.success(f"Syndication '{selected}' deleted.")
+
 else:
     st.header(f"{user_selected.capitalize()}'s Deals")
     synd = st.session_state.syndications.query("User == @user_selected")
